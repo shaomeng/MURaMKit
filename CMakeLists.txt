@@ -33,15 +33,6 @@ option( BUILD_SHARED_LIBS "Build shared SPERR library" ON )
 option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
 
 #
-# Find ZSTD
-#
-#find_package(PkgConfig REQUIRED)
-#pkg_search_module(ZSTD REQUIRED IMPORTED_TARGET GLOBAL libzstd )
-#set(MURaMKit_ZSTD_DEPENDENCY "libzstd")
-#message(STATUS "Found ZSTD: ${ZSTD_LINK_LIBRARIES}")
-
-
-#
 # Basically always use full rpath when installing.
 # These specifications need to be placed before defining any targets.
 #
@@ -59,13 +50,6 @@ add_subdirectory( src )
 # Build command line utilities
 #
 if( BUILD_CLI_UTILITIES )
-  # Download CLI11
-  #
-  if( NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CLI11.hpp )
-      file(DOWNLOAD https://github.com/CLIUtils/CLI11/releases/latest/download/CLI11.hpp
-                    ${CMAKE_CURRENT_BINARY_DIR}/CLI11.hpp )
-  endif()
-
   add_subdirectory( utilities ${CMAKE_BINARY_DIR}/bin )
 endif()
 

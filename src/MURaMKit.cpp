@@ -59,9 +59,12 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
   // Step 4.1: make all values non-negative
   if (has_neg) {
     mask.resize(buf_len);
+    mask.set_all_true();
     for (size_t i = 0; i < buf_len; i++) {
-      mask.write_bit(i, buf[i] >= 0.0);
-      buf[i] = std::abs(buf[i]);
+      if (buf[i] < 0.0) {
+        mask.write_bit(i, false);
+        buf[i] = std::abs(buf[i]);
+      }
     }
     const auto& mask_buf = mask.view_buffer();
     auto mask_num_bytes = mask_buf.size() * 8;
@@ -100,29 +103,29 @@ auto mkit::smart_exp(T* buf, size_t buf_len, const void* meta) -> int
     return 1;
 
   // Step 1: are there negative or absolute zero values?
+  //
   const uint8_t* p = static_cast<const uint8_t*>(meta);
   auto [has_neg, has_zero, b2, b3, b4, b5, b6, b7] = unpack_8_booleans(p[8]);
 
-  // Step 2: apply exp to non-zero values
+  // Step 2: apply exp to all values, then zero out ones indicated by the zero mask.
+  //
+  std::for_each(buf, buf + buf_len, [](auto& v){ v = std::exp(v); });
   auto mask = Bitmask();
   if (has_zero) {
     // Need to figure out where zero mask is stored
+    mask.resize(buf_len);
     size_t pos = 9;
     if (has_neg) 
       pos += mask.view_buffer().size() * 8;
-    mask.resize(buf_len);
     mask.use_bitstream(p + pos);
     for (size_t i = 0; i < buf_len; i++) {
       if (mask.read_bit(i))
         buf[i] = 0.0;
-      else
-        buf[i] = std::exp(buf[i]);  
     }
   }
-  else
-    std::for_each(buf, buf + buf_len, [](auto& v){ v = std::exp(v); });
 
   // Step 3: apply negative signs if needed
+  //
   if (has_neg) {
     mask.resize(buf_len);
     mask.use_bitstream(p + 9);

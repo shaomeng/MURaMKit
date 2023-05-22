@@ -1,6 +1,7 @@
 add_library( MURaMKit
              Bitmask.cpp
-             MURaMKit.cpp )
+             MURaMKit.cpp
+             MURaMKit_CAPI.cpp )
              
 target_include_directories( MURaMKit PUBLIC ${CMAKE_SOURCE_DIR}/include )
 
@@ -18,6 +19,7 @@ set_target_properties( MURaMKit PROPERTIES VERSION ${MURaMKit_VERSION} )
 #
 set( public_h_list 
 "include/Bitmask.h;\
-include/MURaMKit.cpp;")
+include/MURaMKit.h;\
+include/MURaMKit_CAPI.h;")
 set_target_properties( MURaMKit PROPERTIES PUBLIC_HEADER "${public_h_list}" )
 

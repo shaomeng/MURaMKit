@@ -1,6 +1,7 @@
 #include "Bitmask.h"
 
 #include <algorithm>
+#include <limits>
 
 mkit::Bitmask::Bitmask(size_t nbits)
 {
@@ -30,6 +31,11 @@ void mkit::Bitmask::resize(size_t nbits)
 void mkit::Bitmask::reset()
 {
   std::fill(m_buf.begin(), m_buf.end(), 0);
+}
+
+void mkit::Bitmask::set_all_true()
+{
+  std::fill(m_buf.begin(), m_buf.end(), std::numeric_limits<uint64_t>::max());
 }
 
 auto mkit::Bitmask::read_long(size_t idx) const -> uint64_t
