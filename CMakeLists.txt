@@ -35,10 +35,10 @@ option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
 #
 # Find ZSTD
 #
-find_package(PkgConfig REQUIRED)
-pkg_search_module(ZSTD REQUIRED IMPORTED_TARGET GLOBAL libzstd )
-set(MURaMKit_ZSTD_DEPENDENCY "libzstd")
-message(STATUS "Found ZSTD: ${ZSTD_LINK_LIBRARIES}")
+#find_package(PkgConfig REQUIRED)
+#pkg_search_module(ZSTD REQUIRED IMPORTED_TARGET GLOBAL libzstd )
+#set(MURaMKit_ZSTD_DEPENDENCY "libzstd")
+#message(STATUS "Found ZSTD: ${ZSTD_LINK_LIBRARIES}")
 
 
 #

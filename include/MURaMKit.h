@@ -1,36 +1,25 @@
 #ifndef MKIT_H
 #define MKIT_H
 
-#include <stddef.h>  /* size_t */
-#include <stdint.h>  /* fixed width integers */
+#include <array>
+#include <cstddef>  // size_t
+#include <cstdint>  // fixed width integers
 
-#ifdef __cplusplus
 namespace mkit {
-extern "C" {
-#endif
 
-int smart_log(
-    void*   buf,        /* Input and Output: buffer of double values */
-    int     type,       /* Input: buf data type: 1 == float, 0 == double */
-    size_t  buf_len,    /* Input: number of double values */
-    void**  meta);      /* Output: meta data that records necessary info for exp operations */
-                        /* Note: meta points to another pointer which points to NULL. */
+using std::size_t;
 
-int smart_exp(
-    void*   buf,        /* Input and Output: buffer of double values */
-    int     type,       /* Input: buf data type: 1 == float, 0 == double */
-    size_t  buf_len,    /* Input: number of double values */
-    void*   meta);      /* Input: meta data that is needed for exp operations */
-
-/* size_t read_meta_len(void* meta); */
-
-#ifdef __cplusplus
-} /* end of extern "C" */
+auto pack_8_booleans(std::array<bool, 8>) -> uint8_t;
+auto unpack_8_booleans(uint8_t) -> std::array<bool, 8>;
 
 template <typename T>
-int smart_log_impl(T* buf, size_t buf_len, void** meta);
+auto smart_log(T* buf, size_t buf_len, void** meta) -> int;
+template <typename T>
+auto smart_exp(T* buf, size_t buf_len, const void* meta) -> int;
 
-} /* end of namespace */
-#endif
+auto calc_log_meta_len(size_t buf_len, uint8_t treatment) -> size_t;  // In number of bytes
+auto retrieve_log_meta_len(const void* meta) -> size_t;  // In number of bytes
+
+}; // end of namespace
 
 #endif

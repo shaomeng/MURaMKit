@@ -8,7 +8,7 @@ target_include_directories( MURaMKit PUBLIC ${CMAKE_SOURCE_DIR}/include )
 #
 # Also link zstd
 #
-target_link_libraries( MURaMKit PUBLIC PkgConfig::ZSTD )
+#target_link_libraries( MURaMKit PUBLIC PkgConfig::ZSTD )
 
 
 set_target_properties( MURaMKit PROPERTIES VERSION ${MURaMKit_VERSION} )
