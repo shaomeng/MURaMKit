@@ -71,15 +71,7 @@ endif()
 
 # Install utilities
 #
-#if( BUILD_CLI_UTILITIES )
-#  install( TARGETS show_version compressor_3d decompressor_3d
-#           compressor_2d decompressor_2d header_parser
-#           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )
-#endif()
-
-# Add a pkg-config file, also copy over SperrConfig.h
-#
-#configure_file("${CMAKE_SOURCE_DIR}/SPERR.pc.in" SPERR.pc @ONLY)
-#install( FILES "${CMAKE_BINARY_DIR}/SPERR.pc" DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
-#install( FILES "${CMAKE_BINARY_DIR}/SperrConfig.h" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} )
-
+if( BUILD_CLI_UTILITIES )
+  install( TARGETS smart_log
+           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )
+endif()
