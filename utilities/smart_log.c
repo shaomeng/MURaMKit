@@ -100,7 +100,8 @@ int main(int argc, char** argv)
   }
 
   /* clean up allocated memory */
-  free(meta);
+  if (meta)
+    free(meta);
   free(outbuf);
   free(inbuf);
 }
