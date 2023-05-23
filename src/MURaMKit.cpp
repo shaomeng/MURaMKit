@@ -1,6 +1,5 @@
 #include "MURaMKit.h"
 #include "Bitmask.h"
-#include "zstd.h"
 
 #include <algorithm>
 #include <cmath>

@@ -86,10 +86,18 @@ int main(int argc, char** argv)
       outval = outbuf[i];
       maxerr = fabs(inbuf[i] - outbuf[i]);
     }
-  printf("-- analysis: max error = %.2e (in = %e, out = %e)\n", maxerr, inval, outval);
+  printf("-- analysis: max error = %.2e, rel = %.2e, (orig = %.2e, xform = %.2e)\n",
+             maxerr, fabs(maxerr / inval), inval, outval);
 
   /* write out transformed data if needed */
-
+  if (outfile && outmeta) {
+    f = fopen(outfile, "w");
+    fwrite(outbuf, sizeof(FLT), len, f);
+    fclose(f);
+    f = fopen(outmeta, "w");
+    fwrite(meta, 1, mkit_log_meta_len(meta), f);
+    fclose(f);
+  }
 
   /* clean up allocated memory */
   free(meta);
