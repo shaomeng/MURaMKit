@@ -58,7 +58,7 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
   // Step 4.1: make all values non-negative
   if (has_neg) {
     mask.resize(buf_len);
-    mask.set_all_true();
+    mask.reset_true();
     for (size_t i = 0; i < buf_len; i++) {
       if (buf[i] < 0.0) {
         mask.write_bit(i, false);

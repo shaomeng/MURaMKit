@@ -33,7 +33,7 @@ class Bitmask {
   auto size() const -> size_t;  // Num. of useful bits in this mask.
   void resize(size_t nbits);    // Resize to hold n bits.
   void reset();                 // Set the current bitmask to be all 0's.
-  void set_all_true();          // Set the current bitmask to be all 1's.
+  void reset_true();            // Set the current bitmask to be all 1's.
 
   // Functions for read
   //
