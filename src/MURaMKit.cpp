@@ -2,6 +2,7 @@
 #include "Bitmask.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <memory>
