@@ -40,7 +40,7 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
     mask.reset_true();
     for (size_t i = 0; i < buf_len; i++) {
       if (buf[i] < 0.0) {
-        mask.write_bit(i, false);
+        mask.write_false(i);
         buf[i] = std::abs(buf[i]);
       }
     }
@@ -56,7 +56,7 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
     mask.reset();
     for (size_t i = 0; i < buf_len; i++) {
       if (buf[i] == 0.0)
-        mask.write_bit(i, true);
+        mask.write_true(i);
       else
         buf[i] = std::log(buf[i]);
     }
