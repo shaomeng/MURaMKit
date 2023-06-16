@@ -76,7 +76,7 @@ void mkit::Bitmask::write_true(size_t idx)
   m_buf[wstart] = word;
 }
 
-void mkit::Bitmask::write_false(size_t idx);
+void mkit::Bitmask::write_false(size_t idx)
 {
   const auto wstart = idx / 64;
   const auto mask = uint64_t{1} << (idx % 64);

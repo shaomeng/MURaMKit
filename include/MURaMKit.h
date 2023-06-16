@@ -24,6 +24,11 @@ auto inv_normalize(T* buf, dims_type dims, const void* meta) -> int;
 auto retrieve_norm_meta_len(const void* meta) -> size_t;  // In number of bytes
 
 
+template <typename T>
+auto normalize2(T* buf, dims_type dims, void** meta) -> int;
+template <typename T>
+auto inv_normalize2(T* buf, dims_type dims, const void* meta) -> int;
+
 
 //
 // Helper functions that are not supposed to be used by end users.
