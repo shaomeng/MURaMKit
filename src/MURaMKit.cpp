@@ -136,8 +136,7 @@ auto mkit::slice_norm(T *buf, dims_type dims, void **meta) -> int {
   if (*meta != nullptr)
     return 1;
 
-  // In case of 2D slices, really does nothing, just record a header size of 4
-  // bytes.
+  // In case of 2D slices, really does nothing, just record a header size of 4 bytes.
   //
   if (dims[2] == 1) {
     uint32_t header_len = sizeof(uint32_t);
@@ -162,21 +161,21 @@ auto mkit::slice_norm(T *buf, dims_type dims, void **meta) -> int {
       reinterpret_cast<double *>(tmp_buf + sizeof(header_len));
   std::fill(mean_buf, mean_buf + dimx, 0.0);
   for (size_t i = 0; i < total_vals; i++)
-    mean_buf[i % dimx] += buf[i];
+    mean_buf[i % dimx] += double(buf[i]);
   const auto slice = double(dims[1] * dims[2]);
   std::for_each(mean_buf, mean_buf + dimx, [slice](auto &v) { v /= slice; });
 
   // Second pass: subtract mean
   //
   for (size_t i = 0; i < total_vals; i++)
-    buf[i] -= mean_buf[i % dimx];
+    buf[i] -= T(mean_buf[i % dimx]);
 
   // Third pass: calculate RMS
   //
   double *const rms_buf = mean_buf + dimx;
   std::fill(rms_buf, rms_buf + dimx, 0.0);
   for (size_t i = 0; i < total_vals; i++)
-    rms_buf[i % dimx] += buf[i] * buf[i];
+    rms_buf[i % dimx] += double(buf[i] * buf[i]);
   std::for_each(rms_buf, rms_buf + dimx, [slice](auto &v) {
     v /= slice;
     v = std::sqrt(v);
@@ -186,7 +185,7 @@ auto mkit::slice_norm(T *buf, dims_type dims, void **meta) -> int {
   // Fourth pass: divide by RMS
   //
   for (size_t i = 0; i < total_vals; i++)
-    buf[i] /= rms_buf[i % dimx];
+    buf[i] /= T(rms_buf[i % dimx]);
 
   *meta = tmp_buf;
   return 0;
@@ -208,8 +207,8 @@ auto mkit::inv_slice_norm(T *buf, dims_type dims, const void *meta) -> int {
   const double* const rms_buf = mean_buf + dimx;
 
   for (size_t i = 0; i < total_vals; i++) {
-    buf[i] *= rms_buf[i % dimx];
-    buf[i] += mean_buf[i % dimx];
+    buf[i] *= T(rms_buf[i % dimx]);
+    buf[i] += T(mean_buf[i % dimx]);
   }
 
   return 0;
