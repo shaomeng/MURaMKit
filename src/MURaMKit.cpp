@@ -115,26 +115,8 @@ auto mkit::smart_exp(T *buf, size_t buf_len, const void *meta) -> int {
 
   return 0;
 }
-template auto mkit::smart_exp(float *buf, size_t buf_len, const void *meta)
-    -> int;
-template auto mkit::smart_exp(double *buf, size_t buf_len, const void *meta)
-    -> int;
-
-auto mkit::calc_log_meta_len(size_t buf_len, uint8_t treatment) -> size_t {
-  auto num_long = buf_len / 64;
-  if (buf_len % 64 != 0)
-    num_long++;
-  auto [has_neg, has_zero, b2, b3, b4, b5, b6, b7] =
-      unpack_8_booleans(treatment);
-
-  auto meta_len = size_t{9}; // The fixed len field + treatment field.
-  if (has_neg)
-    meta_len += num_long * 8;
-  if (has_zero)
-    meta_len += num_long * 8;
-
-  return meta_len;
-}
+template auto mkit::smart_exp(float *buf, size_t buf_len, const void *meta) -> int;
+template auto mkit::smart_exp(double *buf, size_t buf_len, const void *meta) -> int;
 
 auto mkit::retrieve_log_meta_len(const void *meta) -> size_t {
   const uint8_t *p = static_cast<const uint8_t *>(meta);
@@ -150,7 +132,7 @@ auto mkit::retrieve_log_meta_len(const void *meta) -> size_t {
 }
 
 template <typename T>
-auto mkit::normalize2(T *buf, dims_type dims, void **meta) -> int {
+auto mkit::slice_norm(T *buf, dims_type dims, void **meta) -> int {
   if (*meta != nullptr)
     return 1;
 
@@ -209,11 +191,11 @@ auto mkit::normalize2(T *buf, dims_type dims, void **meta) -> int {
   *meta = tmp_buf;
   return 0;
 }
-template auto mkit::normalize2(float *buf, dims_type dims, void **meta) -> int;
-template auto mkit::normalize2(double *buf, dims_type dims, void **meta) -> int;
+template auto mkit::slice_norm(float *buf, dims_type dims, void **meta) -> int;
+template auto mkit::slice_norm(double *buf, dims_type dims, void **meta) -> int;
 
 template <typename T>
-auto mkit::inv_normalize2(T *buf, dims_type dims, const void *meta) -> int {
+auto mkit::inv_slice_norm(T *buf, dims_type dims, const void *meta) -> int {
   // In case of 2D slices, really does nothing.
   //
   if (dims[2] == 1)
@@ -232,103 +214,10 @@ auto mkit::inv_normalize2(T *buf, dims_type dims, const void *meta) -> int {
 
   return 0;
 }
-template auto mkit::inv_normalize2(float *buf, dims_type dims, const void *meta) -> int;
-template auto mkit::inv_normalize2(double *buf, dims_type dims, const void *meta) -> int;
-template <typename T>
-auto mkit::normalize(T *buf, dims_type dims, void **meta) -> int {
-  if (*meta != nullptr)
-    return 1;
+template auto mkit::inv_slice_norm(float *buf, dims_type dims, const void *meta) -> int;
+template auto mkit::inv_slice_norm(double *buf, dims_type dims, const void *meta) -> int;
 
-  // In case of 2D slices, really does nothing, just record a header size of 4
-  // bytes.
-  if (dims[2] == 1) {
-    uint32_t len = sizeof(uint32_t);
-    void *tmp_buf = std::malloc(len);
-    std::memcpy(tmp_buf, &len, sizeof(len));
-    *meta = tmp_buf;
-    return 0;
-  }
-
-  //
-  // Continue with 3D cases.
-  //
-  const auto slice_len = dims[1] * dims[2];
-  auto slice_buf = std::make_unique<T[]>(slice_len);
-
-  // Filter header definition:
-  // Total_length (uint32_t) +  pairs of mean and rms (double + double)
-  //
-  const uint32_t len = sizeof(uint32_t) + sizeof(double) * 2 * dims[0];
-  uint8_t *tmp_buf = static_cast<uint8_t *>(std::malloc(len));
-  std::memcpy(tmp_buf, &len, sizeof(len));
-  double *const body = reinterpret_cast<double *>(tmp_buf + sizeof(len));
-
-  for (size_t x = 0; x < dims[0]; x++) {
-    extract_YZ_slice(buf, dims, x, slice_buf.get());
-
-    // Operation 1: subtract mean
-    auto mean =
-        std::accumulate(slice_buf.get(), slice_buf.get() + slice_len, T{0.0});
-    mean /= T(slice_len);
-    std::for_each(slice_buf.get(), slice_buf.get() + slice_len,
-                  [mean](auto &v) { v -= mean; });
-
-    // Operation 2: divide by RMS
-    auto rms = calc_RMS(slice_buf.get(), slice_len);
-    if (rms == 0.0)
-      rms = 1.0;
-    std::for_each(slice_buf.get(), slice_buf.get() + slice_len,
-                  [rms](auto &v) { v /= rms; });
-
-    restore_YZ_slice(buf, dims, x, slice_buf.get());
-
-    // Save mean and rms data
-    body[x * 2] = mean;
-    body[x * 2 + 1] = rms;
-  }
-
-  *meta = tmp_buf;
-  return 0;
-}
-template auto mkit::normalize(float *buf, dims_type dims, void **meta) -> int;
-template auto mkit::normalize(double *buf, dims_type dims, void **meta) -> int;
-
-template <typename T>
-auto mkit::inv_normalize(T *buf, dims_type dims, const void *meta) -> int {
-  // In case of 2D slices, really does nothing.
-  if (dims[2] == 1)
-    return 0;
-
-  //
-  // Continue with 3D cases.
-  //
-  const auto slice_len = dims[1] * dims[2];
-  auto slice_buf = std::make_unique<T[]>(slice_len);
-  const double *const body =
-      reinterpret_cast<const double *>(static_cast<const uint8_t *>(meta) + 4);
-
-  for (size_t x = 0; x < dims[0]; x++) {
-    const auto mean = body[x * 2];
-    const auto rms = body[x * 2 + 1];
-    extract_YZ_slice(buf, dims, x, slice_buf.get());
-
-    // Operation 1: multiply by RMS
-    std::for_each(slice_buf.get(), slice_buf.get() + slice_len,
-                  [rms](auto &v) { v *= rms; });
-
-    // Operation 2: add mean
-    std::for_each(slice_buf.get(), slice_buf.get() + slice_len,
-                  [mean](auto &v) { v += mean; });
-
-    restore_YZ_slice(buf, dims, x, slice_buf.get());
-  }
-
-  return 0;
-}
-template auto mkit::inv_normalize(float *buf, dims_type dims, const void *meta) -> int;
-template auto mkit::inv_normalize(double *buf, dims_type dims, const void *meta) -> int;
-
-auto mkit::retrieve_norm_meta_len(const void *meta) -> size_t {
+auto mkit::retrieve_slice_norm_meta_len(const void *meta) -> size_t {
   // Directly read the first 4 bytes
   uint32_t len = 0;
   std::memcpy(&len, meta, sizeof(len));
@@ -356,45 +245,18 @@ auto mkit::unpack_8_booleans(uint8_t src) -> std::array<bool, 8> {
   return b8;
 }
 
-template <typename T>
-void mkit::extract_YZ_slice(const T *src, dims_type dims, size_t x, T *dst) {
-  assert(x < dims[0]);
+auto mkit::calc_log_meta_len(size_t buf_len, uint8_t treatment) -> size_t {
+  auto num_long = buf_len / 64;
+  if (buf_len % 64 != 0)
+    num_long++;
+  auto [has_neg, has_zero, b2, b3, b4, b5, b6, b7] =
+      unpack_8_booleans(treatment);
 
-  const auto YZ_slice = dims[1] * dims[2];
+  auto meta_len = size_t{9}; // The fixed len field + treatment field.
+  if (has_neg)
+    meta_len += num_long * 8;
+  if (has_zero)
+    meta_len += num_long * 8;
 
-  size_t idx = 0;
-  const auto XY_plane = dims[0] * dims[1];
-  for (size_t z = 0; z < dims[2]; z++)
-    for (size_t y = 0; y < dims[1]; y++)
-      dst[idx++] = src[z * XY_plane + y * dims[0] + x];
+  return meta_len;
 }
-template void mkit::extract_YZ_slice(const float *src, dims_type dims, size_t x,
-                                     float *dst);
-template void mkit::extract_YZ_slice(const double *src, dims_type dims,
-                                     size_t x, double *dst);
-
-template <typename T>
-void mkit::restore_YZ_slice(T *dst, dims_type dims, size_t x, const T *src) {
-  assert(x < dims[0]);
-  const auto YZ_slice = dims[1] * dims[2];
-
-  size_t idx = 0;
-  const auto XY_plane = dims[0] * dims[1];
-  for (size_t z = 0; z < dims[2]; z++)
-    for (size_t y = 0; y < dims[1]; y++)
-      dst[z * XY_plane + y * dims[0] + x] = src[idx++];
-}
-template void mkit::restore_YZ_slice(float *dst, dims_type dims, size_t x,
-                                     const float *src);
-template void mkit::restore_YZ_slice(double *dst, dims_type dims, size_t x,
-                                     const double *src);
-
-template <typename T> auto mkit::calc_RMS(const T *buf, size_t len) -> T {
-  auto sum = std::accumulate(buf, buf + len, T{0.0},
-                             [](auto a, auto b) { return a + b * b; });
-  sum /= T(len);
-  sum = std::sqrt(sum);
-  return sum;
-}
-template auto mkit::calc_RMS(const float *buf, size_t len) -> float;
-template auto mkit::calc_RMS(const double *buf, size_t len) -> double;

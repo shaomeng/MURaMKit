@@ -66,21 +66,25 @@ int main(int argc, char** argv)
   FLT* outbuf = (FLT*)malloc(len * sizeof(FLT));
   memcpy(outbuf, inbuf, len * sizeof(FLT));
   void* meta = NULL;
-  int rtn = mkit_normalize(outbuf, sizeof(FLT) == 4, dim_fast, dim_mid, dim_slow, &meta);
+  int rtn = mkit_slice_norm(outbuf, sizeof(FLT) == 4, dim_fast, dim_mid, dim_slow, &meta);
   if (rtn) {
     printf("!! error when applying slice normalization!\n");
     return __LINE__;
   }
   else
-    printf("-- status: successfully applying slice normalization, meta size = %lu\n", 
-            mkit_norm_meta_len(meta));
+    printf("-- status: successfully applied slice normalization, meta size = %lu\n", 
+            mkit_slice_norm_meta_len(meta));
 
-  /* verification: apply inv_normalize(), and print out the maximum difference */
-  rtn = mkit_inv_normalize(outbuf, sizeof(FLT) == 4, dim_fast, dim_mid, dim_slow, meta);
+  /* verification: apply inverse slice norm */
+  rtn = mkit_inv_slice_norm(outbuf, sizeof(FLT) == 4, dim_fast, dim_mid, dim_slow, meta);
   if (rtn) {
     printf("!! error when applying inverse normalize!\n");
     return __LINE__;
   }
+  else
+    printf("-- status: successfully applied inverse slice normalization.\n");
+
+  /* print out the maximum difference */
   double maxerr = 0.0, inval = 0.0, outval = 0.0;
   for (size_t i = 0; i < len; i++)
     if (fabs(inbuf[i] - outbuf[i]) > maxerr) {

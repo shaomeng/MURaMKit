@@ -44,7 +44,7 @@ size_t C_API::mkit_log_meta_len(const void* meta)
   return mkit::retrieve_log_meta_len(meta);
 }
 
-int C_API::mkit_normalize(void* buf, int is_float, size_t dim_fast, size_t dim_mid, 
+int C_API::mkit_slice_norm(void* buf, int is_float, size_t dim_fast, size_t dim_mid, 
                           size_t dim_slow, void** meta)
 {
   const auto dims = mkit::dims_type{dim_fast, dim_mid, dim_slow};
@@ -52,19 +52,19 @@ int C_API::mkit_normalize(void* buf, int is_float, size_t dim_fast, size_t dim_m
     case 0:
     {
       double* bufd = static_cast<double*>(buf);
-      return mkit::normalize(bufd, dims, meta);
+      return mkit::slice_norm(bufd, dims, meta);
     }
     case 1:
     {
       float* buff = static_cast<float*>(buf);
-      return mkit::normalize(buff, dims, meta);
+      return mkit::slice_norm(buff, dims, meta);
     }
     default:
       return -1;
   }
 }
 
-int C_API::mkit_inv_normalize(void* buf, int is_float, size_t dim_fast, size_t dim_mid,
+int C_API::mkit_inv_slice_norm(void* buf, int is_float, size_t dim_fast, size_t dim_mid,
                               size_t dim_slow, const void* meta)
 {
   const auto dims = mkit::dims_type{dim_fast, dim_mid, dim_slow};
@@ -72,19 +72,19 @@ int C_API::mkit_inv_normalize(void* buf, int is_float, size_t dim_fast, size_t d
     case 0:
     {
       double* bufd = static_cast<double*>(buf);
-      return mkit::inv_normalize(bufd, dims, meta);
+      return mkit::inv_slice_norm(bufd, dims, meta);
     }
     case 1:
     {
       float* buff = static_cast<float*>(buf);
-      return mkit::inv_normalize(buff, dims, meta);
+      return mkit::inv_slice_norm(buff, dims, meta);
     }
     default:
       return -1;
   }
 }
 
-size_t C_API::mkit_norm_meta_len( const void* meta)
+size_t C_API::mkit_slice_norm_meta_len( const void* meta)
 {
-  return mkit::retrieve_norm_meta_len(meta);
+  return mkit::retrieve_slice_norm_meta_len(meta);
 }
