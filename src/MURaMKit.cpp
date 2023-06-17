@@ -16,8 +16,15 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
     return 1;
 
   // Step 1: are there negative values and/or absolute zeros in `buf`?
-  auto has_neg = std::any_of(buf, buf + buf_len, [](auto v) { return v < 0.0; });
-  auto has_zero = std::any_of(buf, buf + buf_len, [](auto v) { return v == 0.0; });
+  auto has_neg = false, has_zero = false;
+
+#pragma omp parallel
+  {
+    if (omp_get_thread_num() == 0)  // The 1st thread
+      has_neg = std::any_of(buf, buf + buf_len, [](auto v) { return v < 0.0; });
+    if (omp_get_thread_num() == omp_get_max_threads() - 1)  // The last thread
+      has_zero = std::any_of(buf, buf + buf_len, [](auto v) { return v == 0.0; });
+  }
 
   // Step 2: record test results
   auto treatment = pack_8_booleans({has_neg, has_zero, false, false, false, false, false, false});
