@@ -22,8 +22,7 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
   // Step 2: record test results
   auto treatment = pack_8_booleans({has_neg, has_zero, false, false, false, false, false, false});
 
-  // Step 3: calculate meta field total size, and fill in `buf_len` and
-  // `treatment`
+  // Step 3: calculate meta field total size, and fill in `buf_len` and `treatment`.
   auto meta_len = calc_log_meta_len(buf_len, treatment);
   uint8_t* tmp_buf = static_cast<uint8_t*>(std::malloc(meta_len));
   auto tmp64 = uint64_t{buf_len};
@@ -33,13 +32,27 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
 
   // Step 4: apply conditioning operations
   //
-  auto mask = Bitmask();
+  auto mask = Bitmask();       // will be re-used
+  const size_t stride = 8192;  // must be a multiplier of 64
+  const size_t remain = buf_len % stride;
+  const size_t num_strides = (buf_len - remain) / stride;
 
   // Step 4.1: make all values non-negative
   if (has_neg) {
     mask.resize(buf_len);
     mask.reset_true();
-    for (size_t i = 0; i < buf_len; i++) {
+
+#pragma omp parallel for
+    for (size_t s = 0; s < num_strides; s++) {
+      for (size_t i = s * stride; i < (s + 1) * stride; i++) {
+        if (buf[i] < 0.0) {
+          mask.write_false(i);
+          buf[i] = std::abs(buf[i]);
+        }
+      }
+    }
+
+    for (size_t i = stride * num_strides; i < buf_len; i++) {
       if (buf[i] < 0.0) {
         mask.write_false(i);
         buf[i] = std::abs(buf[i]);
@@ -55,7 +68,18 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
   if (has_zero) {
     mask.resize(buf_len);
     mask.reset();
-    for (size_t i = 0; i < buf_len; i++) {
+
+#pragma omp parallel for
+    for (size_t s = 0; s < num_strides; s++) {
+      for (size_t i = s * stride; i < (s + 1) * stride; i++) {
+        if (buf[i] == 0.0)
+          mask.write_true(i);
+        else
+          buf[i] = std::log(buf[i]);
+      }
+    }
+
+    for (size_t i = stride * num_strides; i < buf_len; i++) {
       if (buf[i] == 0.0)
         mask.write_true(i);
       else
@@ -65,8 +89,11 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
     auto mask_num_bytes = mask_buf.size() * 8;
     std::memcpy(tmp_buf + pos, mask_buf.data(), mask_num_bytes);
   }
-  else
-    std::for_each(buf, buf + buf_len, [](auto& v) { v = std::log(v); });
+  else {
+#pragma omp parallel for
+    for (size_t i = 0; i < buf_len; i++)
+      buf[i] = std::log(buf[i]);
+  }
 
   *meta = tmp_buf;
 
@@ -89,7 +116,10 @@ auto mkit::smart_exp(T* buf, size_t buf_len, const void* meta) -> int
   // Step 2: apply exp to all values, then zero out ones indicated by the zero
   // mask.
   //
-  std::for_each(buf, buf + buf_len, [](auto& v) { v = std::exp(v); });
+#pragma omp parallel for
+  for (size_t i = 0; i < buf_len; i++)
+    buf[i] = std::exp(buf[i]);
+
   auto mask = Bitmask();
   if (has_zero) {
     // Need to figure out where zero mask is stored
@@ -98,6 +128,8 @@ auto mkit::smart_exp(T* buf, size_t buf_len, const void* meta) -> int
     if (has_neg)
       pos += mask.view_buffer().size() * 8;
     mask.use_bitstream(p + pos);
+
+#pragma omp parallel for
     for (size_t i = 0; i < buf_len; i++) {
       if (mask.read_bit(i))
         buf[i] = 0.0;
@@ -109,6 +141,8 @@ auto mkit::smart_exp(T* buf, size_t buf_len, const void* meta) -> int
   if (has_neg) {
     mask.resize(buf_len);
     mask.use_bitstream(p + 9);
+
+#pragma omp parallel for
     for (size_t i = 0; i < buf_len; i++)
       if (!mask.read_bit(i))
         buf[i] = -buf[i];
