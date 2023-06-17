@@ -1,5 +1,6 @@
 #include "MURaMKit.h"
 #include "Bitmask.h"
+#include <omp.h>
 
 #include <algorithm>
 #include <cassert>
@@ -147,43 +148,77 @@ auto mkit::slice_norm(T *buf, dims_type dims, void **meta) -> int {
   }
 
   // Filter header definition:
-  // Total_length (uint32_t) +  pairs of mean and rms (double + double)
+  // Total_length (uint32_t) +  slice means (double) + slice rms (double)
   //
   const auto dimx = dims[0];
+  const auto xy = dims[0] * dims[1];
+  const auto yz = double(dims[1] * dims[2]);
   const auto total_vals = dims[0] * dims[1] * dims[2];
   const uint32_t header_len = sizeof(uint32_t) + sizeof(double) * 2 * dimx;
   uint8_t *tmp_buf = static_cast<uint8_t *>(std::malloc(header_len));
   std::memcpy(tmp_buf, &header_len, sizeof(header_len));
 
+  // Create a buffer for each OMP thread.
+  //
+  auto buf_vec = std::vector<std::unique_ptr<double[]>>(omp_get_max_threads());
+  for (size_t i = 0; i < buf_vec.size(); i++) {
+    buf_vec[i] = std::make_unique<double[]>(dimx);
+    std::fill(buf_vec[i].get(), buf_vec[i].get() + dimx, 0.0);
+  }
+
   // First pass: calculate mean
   //
   double *const mean_buf =
       reinterpret_cast<double *>(tmp_buf + sizeof(header_len));
-  std::fill(mean_buf, mean_buf + dimx, 0.0);
-  for (size_t i = 0; i < total_vals; i++)
-    mean_buf[i % dimx] += double(buf[i]);
-  const auto slice = double(dims[1] * dims[2]);
-  std::for_each(mean_buf, mean_buf + dimx, [slice](auto &v) { v /= slice; });
+
+  #pragma omp parallel for
+  for (size_t z = 0; z < dims[2]; z++) {
+    auto& mybuf = buf_vec[omp_get_thread_num()];
+    for (size_t i = z * xy; i < (z + 1) * xy; i++)
+      mybuf[i % dimx] += double(buf[i]);
+  }
+
+  for (auto& buf : buf_vec) {
+    for (size_t i = 0; i < dimx; i++)
+      mean_buf[i] += buf[i];
+  }
+  std::for_each(mean_buf, mean_buf + dimx, [yz](auto &v) { v /= yz; });
 
   // Second pass: subtract mean
   //
-  for (size_t i = 0; i < total_vals; i++)
+  #pragma omp parallel for
+  for (size_t i = 0; i < total_vals; i++) {
     buf[i] -= T(mean_buf[i % dimx]);
+  }
 
   // Third pass: calculate RMS
   //
   double *const rms_buf = mean_buf + dimx;
-  std::fill(rms_buf, rms_buf + dimx, 0.0);
-  for (size_t i = 0; i < total_vals; i++)
-    rms_buf[i % dimx] += double(buf[i] * buf[i]);
-  std::for_each(rms_buf, rms_buf + dimx, [slice](auto &v) {
-    v /= slice;
+
+  #pragma omp parallel for
+  for (size_t i = 0; i < buf_vec.size(); i++)
+    std::fill(buf_vec[i].get(), buf_vec[i].get() + dimx, 0.0);
+
+  #pragma omp parallel for
+  for (size_t z = 0; z < dims[2]; z++) {
+    auto& mybuf = buf_vec[omp_get_thread_num()];
+    for (size_t i = z * xy; i < (z + 1) * xy; i++)
+      mybuf[i % dimx] += double(buf[i] * buf[i]);
+  }
+
+  for (auto& buf : buf_vec) {
+    for (size_t i = 0; i < dimx; i++)
+      rms_buf[i] += buf[i];
+  }
+  std::for_each(rms_buf, rms_buf + dimx, [yz](auto &v) {
+    v /= yz;
     v = std::sqrt(v);
   });
   std::replace(rms_buf, rms_buf + dimx, 0.0, 1.0);
 
   // Fourth pass: divide by RMS
   //
+  #pragma omp parallel for
   for (size_t i = 0; i < total_vals; i++)
     buf[i] /= T(rms_buf[i % dimx]);
 
@@ -206,6 +241,7 @@ auto mkit::inv_slice_norm(T *buf, dims_type dims, const void *meta) -> int {
       reinterpret_cast<const double*>(static_cast<const uint8_t*>(meta) + 4);
   const double* const rms_buf = mean_buf + dimx;
 
+  #pragma omp parallel for
   for (size_t i = 0; i < total_vals; i++) {
     buf[i] *= T(rms_buf[i % dimx]);
     buf[i] += T(mean_buf[i % dimx]);
@@ -218,6 +254,7 @@ template auto mkit::inv_slice_norm(double *buf, dims_type dims, const void *meta
 
 auto mkit::retrieve_slice_norm_meta_len(const void *meta) -> size_t {
   // Directly read the first 4 bytes
+  //
   uint32_t len = 0;
   std::memcpy(&len, meta, sizeof(len));
   return len;

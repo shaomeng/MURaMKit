@@ -32,6 +32,13 @@ endif()
 option( BUILD_SHARED_LIBS "Build shared SPERR library" ON )
 option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
 
+find_package(OpenMP REQUIRED)
+if (OpenMP_CXX_FOUND)
+  message(STATUS "OpenMP found! (${OpenMP_CXX_LIB_NAMES}-${OpenMP_CXX_VERSION}: ${OpenMP_CXX_FLAGS})")
+else()
+  message(FATAL_ERROR "OpenMP NOT found! Try turning it off!")
+endif()
+
 #
 # Basically always use full rpath when installing.
 # These specifications need to be placed before defining any targets.

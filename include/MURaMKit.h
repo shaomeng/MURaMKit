@@ -2,8 +2,8 @@
 #define MKIT_H
 
 #include <array>
-#include <cstddef>  // size_t
-#include <cstdint>  // fixed width integers
+#include <cstddef> // size_t
+#include <cstdint> // fixed width integers
 #include <vector>  // fixed width integers
 
 namespace mkit {
@@ -32,6 +32,6 @@ auto calc_log_meta_len(size_t buf_len, uint8_t treatment) -> size_t;  // In numb
 auto pack_8_booleans(std::array<bool, 8>) -> uint8_t;
 auto unpack_8_booleans(uint8_t) -> std::array<bool, 8>;
 
-}; // end of namespace
+}; // namespace mkit
 
 #endif
