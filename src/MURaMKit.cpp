@@ -32,10 +32,9 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
 
   // Step 4: apply conditioning operations
   //
-  auto mask = Bitmask();       // will be re-used
-  const size_t stride = 8192;  // must be a multiplier of 64
-  const size_t remain = buf_len % stride;
-  const size_t num_strides = (buf_len - remain) / stride;
+  auto mask = Bitmask();        // will be re-used
+  const size_t stride = 16384;  // must be a multiplier of 64
+  const size_t num_strides = (buf_len - buf_len % stride) / stride;
 
   // Step 4.1: make all values non-negative
   if (has_neg) {
@@ -90,8 +89,14 @@ auto mkit::smart_log(T* buf, size_t buf_len, void** meta) -> int
     std::memcpy(tmp_buf + pos, mask_buf.data(), mask_num_bytes);
   }
   else {
+
 #pragma omp parallel for
-    for (size_t i = 0; i < buf_len; i++)
+    for (size_t s = 0; s < num_strides; s++) {
+      for (size_t i = s * stride; i < (s + 1) * stride; i++)
+        buf[i] = std::log(buf[i]);
+    }
+
+    for (size_t i = stride * num_strides; i < buf_len; i++)
       buf[i] = std::log(buf[i]);
   }
 
@@ -113,8 +118,7 @@ auto mkit::smart_exp(T* buf, size_t buf_len, const void* meta) -> int
   const uint8_t* p = static_cast<const uint8_t*>(meta);
   auto [has_neg, has_zero, b2, b3, b4, b5, b6, b7] = unpack_8_booleans(p[8]);
 
-  // Step 2: apply exp to all values, then zero out ones indicated by the zero
-  // mask.
+  // Step 2: apply exp to all values, then zero out ones indicated by the zero mask.
   //
 #pragma omp parallel for
   for (size_t i = 0; i < buf_len; i++)

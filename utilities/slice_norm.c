@@ -6,7 +6,7 @@
 
 #include "MURaMKit_CAPI.h"
 
-#define FLT double
+#define FLT float
 
 int main(int argc, char** argv)
 {
