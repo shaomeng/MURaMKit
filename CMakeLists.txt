@@ -31,6 +31,15 @@ endif()
 
 option( BUILD_SHARED_LIBS "Build shared SPERR library" ON )
 option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
+option( INTEGRATE_SPERR "Integrate with existing SPERR library" ON )
+
+if (INTEGRATE_SPERR)
+  set (SPERR_INSTALL_DIR "SPERR INSTALL DIR" CACHE STRING "SPERR Installation Directory")
+  list(APPEND CMAKE_PREFIX_PATH ${SPERR_INSTALL_DIR})
+  find_package(PkgConfig REQUIRED)
+  pkg_search_module(SPERR REQUIRED IMPORTED_TARGET GLOBAL SPERR)
+endif()
+
 
 find_package(OpenMP REQUIRED)
 if (OpenMP_CXX_FOUND)
@@ -79,6 +88,6 @@ endif()
 # Install utilities
 #
 if( BUILD_CLI_UTILITIES )
-  install( TARGETS smart_log
+  install( TARGETS smart_log slice_norm
            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )
 endif()
