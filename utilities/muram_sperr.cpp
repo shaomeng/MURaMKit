@@ -6,6 +6,8 @@
 #include "SPERR3D_OMP_C.h"
 #include "SPERR3D_OMP_D.h"
 
+#define SLICE_NORM
+
 int main(int argc, char* argv[])
 {
   if (argc < 6) {
@@ -31,10 +33,11 @@ int main(int argc, char* argv[])
     return __LINE__;
   }
 
-  // Conditioning meta data
+  // Declare conditioning meta data
   void* meta = NULL;
   size_t meta_size = 0;
 
+#ifdef SMART_LOG
   // Apply smart log transform
   auto rtni = mkit::smart_log(inbuf.data(), inbuf.size(), &meta);
   if (!meta || rtni) {
@@ -47,6 +50,17 @@ int main(int argc, char* argv[])
     std::cout << "(Used a neg value mask)" << std::endl;
   if (b8[1])
     std::cout << "(Used a zero value mask)" << std::endl;
+#endif
+
+#ifdef SLICE_NORM
+  // Apply slice-based normalization
+  auto rtni = mkit::slice_norm(inbuf.data(), {dimx, dimy, dimz}, &meta);
+  if (!meta || rtni) {
+    std::cout << "pre-conditioning failed!" << std::endl;
+    return __LINE__;
+  }
+  meta_size = mkit::retrieve_slice_norm_meta_len(meta);
+#endif
 
   // Apply SPERR compression
   auto encoder = std::make_unique<sperr::SPERR3D_OMP_C>();
@@ -78,18 +92,30 @@ int main(int argc, char* argv[])
   // Acquire the decompressed data
   auto outbufd = decoder->release_decoded_data();
   decoder.reset();
-  auto outbuff = std::vector<float>(total_len);
-  std::copy(outbufd.begin(), outbufd.end(), outbuff.begin());
-  outbufd.clear();
-  outbufd.shrink_to_fit();
 
+#ifdef SMART_LOG
   // Apply smart exp transform
-  rtni = mkit::smart_exp(outbuff.data(), total_len, meta);
+  rtni = mkit::smart_exp(outbufd.data(), total_len, meta);
   if (rtni) {
     std::cout << "post-conditioning failed!" << std::endl;
     std::free(meta);
     return __LINE__;
   }
+#endif
+
+#ifdef SLICE_NORM
+  // Apply inverse slice-based normalization
+  rtni = mkit::inv_slice_norm(outbufd.data(), {dimx, dimy, dimz}, meta);
+  if (rtni) {
+    std::cout << "post-conditioning failed!" << std::endl;
+    std::free(meta);
+    return __LINE__;
+  }
+#endif
+
+  // Make a copy of the data in single precision
+  auto outbuff = std::vector<float>(total_len);
+  std::copy(outbufd.begin(), outbufd.end(), outbuff.begin());
 
   // Write output file
   rtn = sperr::write_n_bytes(outfile, sizeof(float) * outbuff.size(), outbuff.data());
