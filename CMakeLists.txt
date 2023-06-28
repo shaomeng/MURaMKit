@@ -16,25 +16,21 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 include(CMakeDependentOption)
-#
-# Test system endian. SPERR only works on little endian machines,
-# which are pretty much all machines on the market in 2020.
-#
 include(TestBigEndian)
 test_big_endian(IS_BIG_ENDIAN)
 if(IS_BIG_ENDIAN)
  message(FATAL_ERROR "CMake detects that the target machine is BIG ENDIAN,\
-                      which SPERR cannot work on!")
+                      which MURaMKit cannot work on!")
 else()
  message(STATUS "Little endian machine, good!")
 endif()
 
-option( BUILD_SHARED_LIBS "Build shared SPERR library" ON )
+option( BUILD_SHARED_LIBS "Build shared library" ON )
 option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
 option( INTEGRATE_SPERR "Integrate with existing SPERR library" ON )
 
 if (INTEGRATE_SPERR)
-  set (SPERR_INSTALL_DIR "SPERR INSTALL DIR" CACHE STRING "SPERR Installation Directory")
+  set (SPERR_INSTALL_DIR "SPERR INSTALL DIR" CACHE STRING "(Only needed when INTEGRATE_SPERR is ON)")
   list(APPEND CMAKE_PREFIX_PATH ${SPERR_INSTALL_DIR})
   find_package(PkgConfig REQUIRED)
   pkg_search_module(SPERR REQUIRED IMPORTED_TARGET GLOBAL SPERR)
@@ -58,7 +54,7 @@ set( CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" )
 set( CMAKE_INSTALL_RPATH_USE_LINK_PATH  TRUE  )
 
 #
-# Compile the SPERR library
+# Compile the MURaMKit library
 #
 add_subdirectory( src )
 
@@ -75,7 +71,7 @@ endif()
 #
 include( GNUInstallDirs )
 
-# Install the SPERR library
+# Install the MURaMKit library
 #
 if( BUILD_SHARED_LIBS )
   install( TARGETS MURaMKit LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
