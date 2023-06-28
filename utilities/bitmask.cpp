@@ -3,16 +3,17 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <memory>
 
-#include "MURaMKit.h"
+#include "Bitmask.h"
 
 using FLT = float;
 
 int main(int argc, char* argv[])
 {
-  char* infile = NULL;
-  char* outfile = NULL;
-  char* outmeta = NULL;
+  char* infile = nullptr;
+  char* outfile = nullptr;
+  char* outmeta = nullptr;
 
   if (argc == 4) {
     infile = argv[1];
@@ -40,66 +41,29 @@ int main(int argc, char* argv[])
     std::printf("-- analysis: input has %ld values!\n", len);
 
   std::fseek(f, 0, SEEK_SET);
-  FLT* inbuf = (FLT*)malloc(len * sizeof(FLT));
-  size_t tmp = fread(inbuf, sizeof(FLT), len, f);
+  auto inbuf = std::make_unique<FLT[]>(len);
+  size_t tmp = std::fread(inbuf.get(), sizeof(FLT), len, f);
   assert(tmp == len);
-  fclose(f);
+  std::fclose(f);
 
-  /* if there are negative values or absolute zeros */
-  int has_neg = 0, has_zero = 0;
-  for (size_t i = 0; i < len; i++)
-    if (inbuf[i] < 0.0) {
-      has_neg = 1;
-      break;
-    }
-  for (size_t i = 0; i < len; i++)
-    if (inbuf[i] == 0.0) {
-      has_zero = 1;
-      break;
-    }
-  printf("-- analysis: input has negative values: %d, has absolute zeros: %d\n", has_neg, has_zero);
-
-  /* apply smart log to a copy */
-  FLT* outbuf = (FLT*)malloc(len * sizeof(FLT));
-  memcpy(outbuf, inbuf, len * sizeof(FLT));
-  void* meta = NULL;
-  int rtn = mkit_smart_log(outbuf, sizeof(FLT) == 4, len, &meta);
-  if (rtn) {
-    printf("!! error when applying smart log!\n");
-    return __LINE__;
+  // Separate non-zero values.
+  auto mask = mkit::Bitmask(len);
+  mask.reset();
+  auto nonzero = std::vector<FLT>(len / 16);
+  for (size_t i = 0; i < len; i++) {
+    if (std::abs(inbuf[i]) < 1e-11)
+      mask.write_true(i);
+    else
+      nonzero.push_back(inbuf[i]);
   }
-  else
-    printf("-- status: successfully applying smart log, meta size = %lu\n", mkit_log_meta_len(meta));
+  const auto& mask_buf = mask.view_buffer();
 
-  /* verification: apply smart exp, and print out the maximum difference */
-  rtn = mkit_smart_exp(outbuf, sizeof(FLT) == 4, len, meta);
-  if (rtn) {
-    printf("!! error when applying smart expt!\n");
-    return __LINE__;
-  }
-  double maxerr = 0.0, inval = 0.0, outval = 0.0;
-  for (size_t i = 0; i < len; i++)
-    if (fabs(inbuf[i] - outbuf[i]) > maxerr) {
-      inval = inbuf[i];
-      outval = outbuf[i];
-      maxerr = fabs(inbuf[i] - outbuf[i]);
-    }
-  printf("-- analysis: max error = %.2e, rel = %.2e, (orig = %.2e, xform = %.2e)\n",
-             maxerr, fabs(maxerr / inval), inval, outval);
+  // write out transformed data
+  f = std::fopen(outfile, "w");
+  std::fwrite(nonzero.data(), sizeof(FLT), nonzero.size(), f);
+  std::fclose(f);
+  f = std::fopen(outmeta, "w");
+  std::fwrite(mask_buf.data(), sizeof(long), mask_buf.size(), f);
+  std::fclose(f);
 
-  /* write out transformed data if needed */
-  if (outfile && outmeta) {
-    f = fopen(outfile, "w");
-    fwrite(outbuf, sizeof(FLT), len, f);
-    fclose(f);
-    f = fopen(outmeta, "w");
-    fwrite(meta, 1, mkit_log_meta_len(meta), f);
-    fclose(f);
-  }
-
-  /* clean up allocated memory */
-  if (meta)
-    free(meta);
-  free(outbuf);
-  free(inbuf);
 }
