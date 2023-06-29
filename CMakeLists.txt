@@ -27,7 +27,7 @@ endif()
 
 option( BUILD_SHARED_LIBS "Build shared library" ON )
 option( BUILD_CLI_UTILITIES "Build a set of command line utilities" ON )
-option( INTEGRATE_SPERR "Integrate with existing SPERR library" ON )
+option( INTEGRATE_SPERR "Integrate with existing SPERR library" OFF )
 
 if (INTEGRATE_SPERR)
   set (SPERR_INSTALL_DIR "SPERR INSTALL DIR" CACHE STRING "(Only needed when INTEGRATE_SPERR is ON)")
