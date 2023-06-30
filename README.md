@@ -28,6 +28,6 @@ This compression operation is applicable when the original data contains a lot o
 This operation will use a bitmask (taking one bit per value) to keep track of locations of all zero values, and only save those non-zero values verbatim. 
 - `mkit_bitmask_zero()` performs the compression operation described above, and generates a bitmask together with all non-zero values.
 - `mkit_inv_bitmask_zero()` uses the compressed data produced by `mkit_bitmask_zero()` and reconstructs the original data.
-- `mkit_bitmask_zero_buf_len()` reads the header of the compressed data produced by `mkit_bitmask_zero()` and returns its length in bytes.
+- `mkit_bitmask_zero_buf_len()` reads the header of the compressed data and returns its length in bytes.
 
 This [utility program](https://github.com/shaomeng/MURaMKit/blob/main/utilities/bitmask_zero.c) demonstrates their usage.
