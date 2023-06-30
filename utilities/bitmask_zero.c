@@ -78,6 +78,7 @@ int main(int argc, char* argv[])
   }
   printf("-- analysis: compression max diff = %.2e\n", max);
 
+  /* Free previously allocated memory */
   free(inbuf);  
   free(comp);  
   free(output);  
