@@ -87,3 +87,33 @@ size_t C_API::mkit_slice_norm_meta_len(const void* meta)
 {
   return mkit::retrieve_slice_norm_meta_len(meta);
 }
+
+int C_API::mkit_bitmask_zero(const void* inbuf,
+                             int is_float,
+                             size_t len,
+                             void** output)
+{
+  switch (is_float) {
+    case 0: {
+      const double* bufd = static_cast<const double*>(inbuf);
+      return mkit::bitmask_zero(bufd, len, output);
+    }
+    case 1: {
+      const float* buff = static_cast<const float*>(inbuf);
+      return mkit::bitmask_zero(buff, len, output);
+    }
+    default:
+      return -1;
+  }
+}
+
+int C_API::mkit_inv_bitmask_zero(const void* inbuf,
+                                 void** output)
+{
+  return mkit::inv_bitmask_zero(inbuf, output);
+}
+
+size_t C_API::mkit_bitmask_zero_buf_len(const void* inbuf)
+{
+  return mkit::retrieve_bitmask_zero_buf_len(inbuf);
+}

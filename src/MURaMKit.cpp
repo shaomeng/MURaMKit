@@ -308,6 +308,113 @@ auto mkit::retrieve_slice_norm_meta_len(const void* meta) -> size_t
   return len;
 }
 
+
+//
+// bitmask_zero functions
+//
+template <typename T>
+auto mkit::bitmask_zero(const T* input, size_t len, void** output) -> int
+{
+  if (*output != nullptr)
+    return 1;
+
+  const auto eps = T{1e-11};
+  auto mask = Bitmask(len);
+  mask.reset_true();
+  auto nonzero = std::vector<T>();
+  nonzero.reserve(len / 16);
+  for (size_t i = 0; i < len; i++)
+    if (std::abs(input[i]) > eps) {
+      mask.write_false(i);
+      nonzero.push_back(input[i]);
+    }
+  const auto& mask_buf = mask.view_buffer();
+
+  // Header definition:
+  // precision (1 byte) + input_num_vals (8 byte) + nonzero_num_vals (8 byte)
+  //
+  const auto header_len = 17ul;                         // In bytes
+  auto mask_len = mask_buf.size() * sizeof(long);       // In bytes
+  auto nonzero_len = nonzero.size() * sizeof(T);        // In bytes
+  auto total_len = header_len + mask_len + nonzero_len; // In bytes
+
+  uint8_t* buf = static_cast<uint8_t*>(std::malloc(total_len));
+  buf[0] = std::is_same_v<T, float>;          // Save precision
+  std::memcpy(&buf[1], &len, sizeof(len));    // Save input_num_vals
+  size_t nonzero_vals = nonzero.size();
+  std::memcpy(&buf[9], &nonzero_vals, sizeof(nonzero_vals));  // Save nonzero_num_vals
+  std::memcpy(&buf[header_len], mask_buf.data(), mask_len);               // Save the mask
+  std::memcpy(&buf[header_len + mask_len], nonzero.data(), nonzero_len);  // Save nonzero vals
+
+  *output = buf;
+
+  return 0;
+}
+template auto mkit::bitmask_zero(const float*, size_t, void**) -> int;
+template auto mkit::bitmask_zero(const double*, size_t, void**) -> int;
+
+auto mkit::inv_bitmask_zero(const void* input, void** output) -> int
+{
+  if (*output != nullptr)
+    return 1;
+
+  const uint8_t* const p = static_cast<const uint8_t*>(input);
+  bool is_float = p[0];
+  const auto header_len = 17ul;
+  size_t total_vals = 0;
+  std::memcpy(&total_vals, &p[1], sizeof(total_vals));
+  auto mask = Bitmask(total_vals);
+  const auto mask_len = mask.view_buffer().size() * sizeof(long);
+  mask.use_bitstream(p + header_len);
+
+  if (is_float) {
+    const float* src = reinterpret_cast<const float*>(p + header_len + mask_len);
+    float* dst = static_cast<float*>(std::malloc(total_vals * sizeof(float)));
+    std::fill_n(dst, total_vals, 0.0f);
+    size_t counter = 0;
+    for (size_t i = 0; i < total_vals; i++) {
+      if (!mask.read_bit(i))
+        dst[i] = src[counter++];
+    }
+    *output = dst;
+  }
+  else {
+    const double* src = reinterpret_cast<const double*>(p + header_len + mask_len);
+    double* dst = static_cast<double*>(std::malloc(total_vals * sizeof(double)));
+    std::fill_n(dst, total_vals, 0.0);
+    size_t counter = 0;
+    for (size_t i = 0; i < total_vals; i++) {
+      if (!mask.read_bit(i))
+        dst[i] = src[counter++];
+    }
+    *output = dst;
+  }
+
+  return 0;
+}
+
+auto mkit::retrieve_bitmask_zero_buf_len(const void* input) -> size_t
+{
+  const uint8_t* const p = static_cast<const uint8_t*>(input);
+  bool is_float = p[0];
+  size_t total_vals = 0, nonzero_vals = 0, header_len = 17;
+  std::memcpy(&total_vals, &p[1], sizeof(total_vals));
+  std::memcpy(&nonzero_vals, &p[9], sizeof(nonzero_vals));
+  auto mask = Bitmask(total_vals);
+  auto mask_len = mask.view_buffer().size() * sizeof(long);
+  if (is_float) {
+    auto rtn = header_len + mask_len + nonzero_vals * sizeof(float);
+    return rtn;
+  }
+  else {
+    auto rtn = header_len + mask_len + nonzero_vals * sizeof(double);
+    return rtn;
+  }
+}
+
+//
+// Helper functions
+//
 auto mkit::pack_8_booleans(std::array<bool, 8> src) -> uint8_t
 {
   auto bytes = std::array<uint8_t, 8>();

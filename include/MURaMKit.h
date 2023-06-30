@@ -23,6 +23,11 @@ template <typename T>
 auto inv_slice_norm(T* buf, dims_type dims, const void* meta) -> int;
 auto retrieve_slice_norm_meta_len(const void* meta) -> size_t;  // In number of bytes
 
+template <typename T>
+auto bitmask_zero(const T* input, size_t len, void** output) -> int;
+auto inv_bitmask_zero(const void* input, void** output) -> int;
+auto retrieve_bitmask_zero_buf_len(const void* input) -> size_t;  // In number of bytes
+
 //
 // Helper functions that are not supposed to be used by end users.
 //
